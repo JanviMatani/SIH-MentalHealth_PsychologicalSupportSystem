@@ -5,6 +5,7 @@
 <title>Book Appointment</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
 <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css" rel="stylesheet">
+
 <style>
   * { box-sizing: border-box; margin:0; padding:0; font-family: 'Inter', sans-serif; }
   body {
@@ -143,50 +144,86 @@
 </div>
 
 <script>
-  // Simulated login state
-  let isLoggedIn = true; // change false to test unauthorized
+let isLoggedIn = true; // Simulated login
 
-  // Dynamic time slots
-  const times = [
-    "10:00 AM - 11:00 AM",
-    "11:00 AM - 12:00 PM",
-    "12:00 PM - 1:00 PM",
-    "2:00 PM - 3:00 PM",
-    "3:00 PM - 4:00 PM",
-    "5:00 PM - 6:00 PM"
-  ];
-  const timeSelect = document.getElementById("time");
-  times.forEach(t => {
-    const opt = document.createElement("option");
-    opt.value = t; opt.text = t;
-    timeSelect.appendChild(opt);
+const allTimes = [
+  "10:00 AM - 11:00 AM",
+  "11:00 AM - 12:00 PM",
+  "12:00 PM - 1:00 PM",
+  "2:00 PM - 3:00 PM",
+  "3:00 PM - 4:00 PM",
+  "5:00 PM - 6:00 PM"
+];
+
+const dateInput = document.getElementById("date");
+const timeSelect = document.getElementById("time");
+
+// Populate available times for a selected date
+async function populateTimes(date) {
+  timeSelect.innerHTML = "";
+
+  // Fetch already booked times from server
+  let response = await fetch(`/booked_times?date=${date}`);
+  let booked = await response.json(); // array of booked times
+
+  allTimes.forEach(t => {
+    if (!booked.includes(t)) {
+      const opt = document.createElement("option");
+      opt.value = t;
+      opt.text = t;
+      timeSelect.appendChild(opt);
+    }
+  });
+}
+
+// Update time dropdown whenever date changes
+dateInput.addEventListener("change", () => {
+  populateTimes(dateInput.value);
+});
+
+// Booking function
+async function bookAppointment() {
+  const lang = document.getElementById("language").value;
+  const mode = document.getElementById("mode").value;
+  const date = document.getElementById("date").value;
+  const time = document.getElementById("time").value;
+  const msgDiv = document.getElementById("message");
+
+  msgDiv.innerHTML = "";
+  msgDiv.className = "";
+
+  if (!isLoggedIn) {
+    msgDiv.className = "message error";
+    msgDiv.innerText = "⚠️ You must be logged in to book an appointment.";
+    return;
+  }
+
+  if (!lang || !mode || !date || !time) {
+    msgDiv.className = "message error";
+    msgDiv.innerText = "⚠️ Please fill all fields.";
+    return;
+  }
+
+  // Send booking to Flask backend
+  const res = await fetch("/book", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({language: lang, mode: mode, date: date, time: time})
   });
 
-  function bookAppointment() {
-    const lang = document.getElementById("language").value;
-    const mode = document.getElementById("mode").value;
-    const date = document.getElementById("date").value;
-    const time = document.getElementById("time").value;
-    const msgDiv = document.getElementById("message");
+  const data = await res.json();
 
-    msgDiv.innerHTML = "";
-    msgDiv.className = "";
-
-    if (!isLoggedIn) {
-      msgDiv.className = "message error";
-      msgDiv.innerText = "⚠️ You must be logged in to book an appointment.";
-      return;
-    }
-    if (!lang || !mode || !date || !time) {
-      msgDiv.className = "message error";
-      msgDiv.innerText = "⚠️ Please fill all fields.";
-      return;
-    }
-
+  if (data.status === "success") {
     msgDiv.className = "message success";
     msgDiv.innerText = `✅ Appointment booked in ${lang} via ${mode} on ${date} at ${time}`;
+    populateTimes(date); // refresh time dropdown
+  } else {
+    msgDiv.className = "message error";
+    msgDiv.innerText = `⚠️ ${data.message}`;
   }
+}
 </script>
+
 
 </body>
 </html>
